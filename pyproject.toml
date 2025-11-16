@@ -1,0 +1,37 @@
+[project]
+name = "robotframework-snmplibrary"
+version = "0.3.0dev1"
+description = ""
+authors = [{name = "Michael Walle", email = "michael.walle@kontron.com"},
+            {name = "Heiko Thiery", email = "heiko.thiery@kontron.com"},
+]
+dependencies = [
+    "pyasn1 (<=0.6.0)",
+    "pysnmp",
+    "robotframework",
+]
+requires-python = ">=3.10,<4.0"
+readme = "README.rst"
+license="Apache License 2.0"
+license-files = ["COPYING"]
+classifiers = [
+"Development Status :: 4 - Beta",
+"Framework :: Robot Framework",
+"License :: OSI Approved :: Apache Software License",
+"Operating System :: OS Independent",
+"Programming Language :: Python :: 3.10",
+"Topic :: Software Development :: Testing",
+]
+
+[tool.poetry]
+packages = [{include = "src"}]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+invoke = "*"
+coverage = "*"
+robotframework-stacktrace = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
