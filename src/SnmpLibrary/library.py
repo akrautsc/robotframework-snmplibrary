@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# import asyncio
 import os.path
 import warnings
 from itertools import islice
 from pyasn1.compat.octets import null
 from robot.utils.connectioncache import ConnectionCache
+from robot.api import logger
 
 from .traps import _Traps
 from . import utils
@@ -24,9 +26,10 @@ from . import __version__
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
+    from pysnmp.hlapi.v3arch.asyncio import *
     from pysnmp.smi import builder
     from pysnmp.entity import engine
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
+    from pysnmp.entity.rfc3413 import cmdgen
     from pyasn1.type import univ
     from pysnmp.proto import rfc1902, rfc1905
 
@@ -34,12 +37,14 @@ with warnings.catch_warnings():
 class _SnmpConnection:
 
     def __init__(self, authentication, transport_target, context_name=null):
-        eng = engine.SnmpEngine()
-        self.builder = eng.msgAndPduDsp.mibInstrumController.mibBuilder
+        eng = SnmpEngine()
+        self.builder = eng.msgAndPduDsp.mibInstrumController.get_mib_builder()
 
-        self.cmd_gen = cmdgen.CommandGenerator(eng)
+        self.snmp_engine = eng
+        # self.cmd_gen = cmdgen.CommandGenerator(eng)
         self.authentication_data = authentication
-        self.context_name = context_name
+        # self.context_name = context_name
+        self.context_name = ContextData(contextName=context_name)
         self.transport_target = transport_target
 
         self.prefetched_table = {}
@@ -82,9 +87,9 @@ class SnmpLibrary(_Traps):
         if alias:
             alias = str(alias)
 
-        authentication_data = cmdgen.CommunityData(self.AGENT_NAME,
+        authentication_data = CommunityData(self.AGENT_NAME,
                                                    community_string)
-        transport_target = cmdgen.UdpTransportTarget(
+        transport_target = UdpTransportTarget.create(
                                         (host, port), timeout, retries)
 
         connection = _SnmpConnection(authentication_data, transport_target)
@@ -168,7 +173,7 @@ class SnmpLibrary(_Traps):
                                     authentication_protocol,
                                     encryption_protocol)
 
-        transport_target = cmdgen.UdpTransportTarget(
+        transport_target = UdpTransportTarget.create(
                                         (host, port), timeout, retries)
 
         conn = _SnmpConnection(authentication_data, transport_target, context_name)
@@ -243,21 +248,22 @@ class SnmpLibrary(_Traps):
             self._info('Preloading all available MIBs')
         self._active_connection.builder.loadModules(*names)
 
-    def _get(self, oid, idx=(0,), expect_string=False):
+    async def _get(self, oid, idx=(0,), expect_string=False):
 
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
         idx = utils.parse_idx(idx)
         oid = utils.parse_oid(oid) + idx
-
-        error_indication, error, _, var = \
-            self._active_connection.cmd_gen.getCmd(
+        logger.debug("DEBUG")
+        logger.debug(self._active_connection.transport_target)
+        logger.debug("DEBUG")
+        error_indication, error, _, var =  await get_cmd(
+                self._active_connection.snmp_engine,
                 self._active_connection.authentication_data,
                 self._active_connection.transport_target,
-                oid,
-                contextName=self._active_connection.context_name
-            )
+                self._active_connection.context_name,
+                oid)
 
         if error_indication is not None:
             raise RuntimeError('SNMP GET failed: %s' % error_indication)
@@ -296,6 +302,7 @@ class SnmpLibrary(_Traps):
         | ${value}=  | Get | sysDescr | |
         | ${value}=  | Get | ifDescr | 2 |
         """
+        # return asyncio.run(self._get(oid, idx))
         return self._get(oid, idx)
 
     def get_display_string(self, oid, idx=(0,)):

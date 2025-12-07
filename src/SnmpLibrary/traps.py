@@ -20,9 +20,10 @@ import robot.utils
 
 with warnings.catch_warnings():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
-    from pysnmp.carrier.asynsock.dispatch import AsynsockDispatcher
-    from pysnmp.carrier.asynsock.dgram import udp
-    from pysnmp.proto.api import decodeMessageVersion, v2c, protoVersion2c
+    from pysnmp.carrier.asyncio.dispatch import AsyncioDispatcher
+    from pysnmp.carrier.asyncio.dgram import udp
+    # from pysnmp.proto.api import verdec, v2c, protoVersion2c
+    from pysnmp.proto.api import verdec, v2c
     from pyasn1.codec.ber import decoder
 
 from . import utils
@@ -51,7 +52,11 @@ def _trap_receiver(trap_filter, host, port, timeout):
                                  robot.utils.secs_to_timestr(timeout))
 
     def _trap_receiver_cb(transport, domain, sock, msg):
-        if decodeMessageVersion(msg) != protoVersion2c:
+        # TODO: Check comparsion
+        # In previous version following comparsion was done
+        # decodeMessageVersion(msg) != protoVersion2c
+        # It's defined protoVersion2c = 1
+        if verdec.decode_message_version(msg) != 1:
             raise RuntimeError('Only SNMP v2c traps are supported.')
 
         req, msg = decoder.decode(msg, asn1Spec=v2c.Message())
@@ -65,7 +70,7 @@ def _trap_receiver(trap_filter, host, port, timeout):
         if trap_filter(domain, sock, pdu):
             transport.jobFinished(1)
 
-    dispatcher = AsynsockDispatcher()
+    dispatcher = AsyncioDispatcher()
     dispatcher.registerRecvCbFun(_trap_receiver_cb)
     dispatcher.registerTimerCbFun(_trap_timer_cb)
 
