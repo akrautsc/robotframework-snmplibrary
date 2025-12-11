@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# import asyncio
+import asyncio
+import inspect
 import os.path
 import warnings
 from itertools import islice
@@ -66,6 +67,10 @@ class SnmpLibrary(_Traps):
 
     def open_snmp_v2c_connection(self, host, community_string=None, port=161,
                                  timeout=1.0, retries=5, alias=None):
+        return asyncio.run(self._open_snmp_v2c_connection(host, community_string, port, timeout, retries, alias))
+
+    async def _open_snmp_v2c_connection(self, host, community_string=None, port=161,
+                                 timeout=1.0, retries=5, alias=None):
         """Opens a new SNMP v2c connection to the given host.
 
         Set `community_string` that is used for this connection.
@@ -78,7 +83,6 @@ class SnmpLibrary(_Traps):
         for switching between connections, similarly as the index. See `Switch
         Connection` for more details about that.
         """
-
         host = str(host)
         port = int(port)
         timeout = float(timeout)
@@ -89,7 +93,7 @@ class SnmpLibrary(_Traps):
 
         authentication_data = CommunityData(self.AGENT_NAME,
                                                    community_string)
-        transport_target = UdpTransportTarget.create(
+        transport_target = await UdpTransportTarget.create(
                                         (host, port), timeout, retries)
 
         connection = _SnmpConnection(authentication_data, transport_target)
@@ -249,21 +253,18 @@ class SnmpLibrary(_Traps):
         self._active_connection.builder.loadModules(*names)
 
     async def _get(self, oid, idx=(0,), expect_string=False):
-
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
         idx = utils.parse_idx(idx)
         oid = utils.parse_oid(oid) + idx
-        logger.debug("DEBUG")
-        logger.debug(self._active_connection.transport_target)
-        logger.debug("DEBUG")
+        logger.debug(type(oid))
         error_indication, error, _, var =  await get_cmd(
                 self._active_connection.snmp_engine,
                 self._active_connection.authentication_data,
                 self._active_connection.transport_target,
                 self._active_connection.context_name,
-                oid)
+            oid)
 
         if error_indication is not None:
             raise RuntimeError('SNMP GET failed: %s' % error_indication)
@@ -302,8 +303,7 @@ class SnmpLibrary(_Traps):
         | ${value}=  | Get | sysDescr | |
         | ${value}=  | Get | ifDescr | 2 |
         """
-        # return asyncio.run(self._get(oid, idx))
-        return self._get(oid, idx)
+        return asyncio.run(self._get(oid, idx))
 
     def get_display_string(self, oid, idx=(0,)):
         """Does a SNMP GET request for the specified 'oid' and convert it
