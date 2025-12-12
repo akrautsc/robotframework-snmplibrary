@@ -3,3 +3,12 @@ build/
 *.egg-info/
 
 .idea
+
+.vscode
+
+docs
+dist
+
+log.html
+report.html
+output.xml
