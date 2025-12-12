@@ -257,8 +257,10 @@ class SnmpLibrary(_Traps):
             raise RuntimeError('No transport host set')
 
         idx = utils.parse_idx(idx)
-        oid = utils.parse_oid(oid) + idx
+       # oid = utils.parse_oid(oid) + idx
+        oid=ObjectType(ObjectIdentity(oid))
         logger.debug(type(oid))
+        logger.debug(oid)
         error_indication, error, _, var =  await get_cmd(
                 self._active_connection.snmp_engine,
                 self._active_connection.authentication_data,
