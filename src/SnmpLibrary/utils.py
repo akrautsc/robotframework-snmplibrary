@@ -54,8 +54,7 @@ def parse_oid(oid):
         suffixes = map(try_int, suffixes)
         suffixes = tuple(suffixes)
         oid = ((mib, sym),) + suffixes
-    logger.debug(type(oid))
-    logger.debug(oid)
+
     return oid
 
 
