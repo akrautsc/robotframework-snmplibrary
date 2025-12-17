@@ -16,6 +16,13 @@ SNMPV2c GET Display String
     Log  ${value}  console=true
     Close Snmp connection
 
+SNMPV2c Walk
+    Open Snmp V2c Connection  localhost  community_string=public
+    @{value} =  Walk  .1.3.6.1.2.1.1.9.1.3
+    Log Many  @{value}
+#    Log  ${value}  console=true
+    Close Snmp connection
+
 SNMPV2c SET
     Open Snmp V2c Connection  localhost  community_string=public
     ${octectStr} =  Convert to OctetString  Test

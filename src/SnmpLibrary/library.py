@@ -220,7 +220,7 @@ class SnmpLibrary(_Traps):
         | Add MIB Search Path | /usr/share/mibs/ |
         """
 
-        self._info('Adding MIB path %s' % (path,))
+        logger.info('Adding MIB path %s' % (path,))
         if not os.path.exists(path):
             raise RuntimeError('Path "%s" does not exist' % path)
 
@@ -243,9 +243,9 @@ class SnmpLibrary(_Traps):
         Note: Preloading all MIBs take a long time.
         """
         if len(names):
-            self._info('Preloading MIBs %s' % ' '.join(list(names)))
+            logger.info('Preloading MIBs %s' % ' '.join(list(names)))
         else:
-            self._info('Preloading all available MIBs')
+            logger.info('Preloading all available MIBs')
         self._active_connection.builder.loadModules(*names)
 
     def _get(self, oid, idx=(0,), expect_string=False):
@@ -285,7 +285,7 @@ class SnmpLibrary(_Traps):
         else:
             value = obj.prettyOut(obj)
 
-        self._info('OID %s has value %s' % (utils.format_oid(oid), value))
+        logger.debug('OID %s has value %s' % (utils.format_oid(oid), value))
 
         return value
 
@@ -316,14 +316,6 @@ class SnmpLibrary(_Traps):
     def _set(self, oid_values):
         # for oid, value in oid_values:
         #     self._info('Setting OID %s to %s' % (utils.format_oid(oid), value))
-
-        error_indication, error, _, var =  asyncio.run(set_cmd(
-            self._active_connection.snmp_engine,
-            self._active_connection.authentication_data,
-            self._active_connection.transport_target,
-            self._active_connection.context_name,
-            oid_values))
-
         # error_indication, error, _, var = \
         #     self._active_connection.cmd_gen.set_Cmd(
         #         self._active_connection.authentication_data,
@@ -331,6 +323,14 @@ class SnmpLibrary(_Traps):
         #         *oid_values,
         #         contextName=self._active_connection.context_name
         #     )
+        error_indication, error, _, var =  asyncio.run(set_cmd(
+            self._active_connection.snmp_engine,
+            self._active_connection.authentication_data,
+            self._active_connection.transport_target,
+            self._active_connection.context_name,
+            oid_values))
+
+
 
         if error_indication is not None:
             raise RuntimeError('SNMP SET failed: %s' % error_indication)
@@ -358,10 +358,8 @@ class SnmpLibrary(_Traps):
 
         # idx = utils.parse_idx(idx)
         # oid = utils.parse_oid(oid) + idx
-        # oid=ObjectType(ObjectIdentity(oid),value)
-        oid=ObjectType(ObjectIdentity(oid),value)
         # self._set((oid, value))
-        self._set(oid)
+        self._set(ObjectType(ObjectIdentity(oid),value))
 
     def set_many(self, *oid_value_pairs):
         """ Does a SNMP SET request with multiple values.
@@ -404,25 +402,41 @@ class SnmpLibrary(_Traps):
 
     def walk(self, oid):
         """Does a SNMP WALK request and returns the result as OID list."""
+        return asyncio.run(self._walk(oid))
+
+    async def _walk(self, oid):
+        """Does a SNMP WALK request and returns the result as OID list."""
 
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
-        self._info('Walk starts at OID %s' % (oid, ))
-        oid = utils.parse_oid(oid)
+        logger.info('Walk starts at OID %s' % (oid, ))
+        # oid = utils.parse_oid(oid)
+        oid = ObjectType(ObjectIdentity(oid))
 
-        error_indication, error, _, var_bind_table = \
-            self._active_connection.cmd_gen.nextCmd(
-                self._active_connection.authentication_data,
-                self._active_connection.transport_target,
-                oid,
-                contextName=self._active_connection.context_name
-            )
+        walk_queries = walk_cmd(
+            self._active_connection.snmp_engine,
+            self._active_connection.authentication_data,
+            self._active_connection.transport_target,
+            self._active_connection.context_name,
+            oid)
+        result = [item async for item in walk_queries]
 
-        if error_indication:
-            raise RuntimeError('SNMP WALK failed: %s' % error_indication)
-        if error != 0:
-            raise RuntimeError('SNMP WALK failed: %s' % error.prettyPrint())
+        # error_indication, error, _, var_bind_table = \
+        #     self._active_connection.cmd_gen.nextCmd(
+        #         self._active_connection.authentication_data,
+        #         self._active_connection.transport_target,
+        #         oid,
+        #         contextName=self._active_connection.context_name
+        #     )
+        var_bind_table = list()
+        for entry in result:
+            error_indication, error, _, var_bind = entry
+            if error_indication:
+                raise RuntimeError('SNMP WALK failed: %s' % error_indication)
+            if error != 0:
+                raise RuntimeError('SNMP WALK failed: %s' % error.prettyPrint())
+            var_bind_table.append(var_bind)
 
         oids = list()
         for var_bind_table_row in var_bind_table:
@@ -432,7 +446,7 @@ class SnmpLibrary(_Traps):
                 obj = ''.join(('.', str(obj)))
             else:
                 obj = obj.prettyOut(obj)
-            self._info('%s: %s' % (oid, obj))
+            logger.debug('%s: %s' % (oid, obj))
             oids.append((oid, obj))
 
         return oids
