@@ -4,7 +4,7 @@ Library  SnmpLibrary
 *** Test Cases ***
 SNMPV2c GET
     Open Snmp V2c Connection  localhost  community_string=public
-    ${value} =  Get  .1.3.6.1.2.1.1.5.0
+    ${value} =  Get  .1.3.6.1.2.1.1.5  0
     Log  ${value}  console=true
 #    ${value} =  Get Display String  .1.3.6.1.2.1.1.5.0
 #    Log  ${value}  console=true
@@ -12,7 +12,7 @@ SNMPV2c GET
 
 SNMPV2c GET Display String
     Open Snmp V2c Connection  localhost  community_string=public
-    ${value} =  Get Display String  .1.3.6.1.2.1.1.5.0
+    ${value} =  Get Display String  .1.3.6.1.2.1.1.5  0
     Log  ${value}  console=true
     Close Snmp connection
 
