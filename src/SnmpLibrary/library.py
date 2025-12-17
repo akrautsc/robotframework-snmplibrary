@@ -226,7 +226,7 @@ class SnmpLibrary(_Traps):
 
         paths = self._active_connection.builder.getMibPath()
         paths += (path, )
-        self._debug('New paths: %s' % ' '.join(paths))
+        logger.debug('New paths: %s' % ' '.join(paths))
         self._active_connection.builder.setMibPath(*paths)
 
     def preload_mibs(self, *names):
@@ -252,10 +252,8 @@ class SnmpLibrary(_Traps):
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
-
-        # TODO: Check idx and oid parser. Try to use ObjectType and ObjectIdentity in parser.
-        # idx = utils.parse_idx(idx)
-        # oid = utils.parse_oid(oid) + idx
+        idx = utils.parse_idx(idx)
+        oid = utils.parse_oid(oid) + idx
         oid=ObjectType(ObjectIdentity(oid))
 
         error_indication, error, _, var =  asyncio.run(get_cmd(
@@ -302,6 +300,7 @@ class SnmpLibrary(_Traps):
         | ${value}=  | Get | sysDescr | |
         | ${value}=  | Get | ifDescr | 2 |
         """
+        logger.info('Get at OID %s with index %s' % (oid, idx))
         return self._get(oid, idx)
 
     def get_display_string(self, oid, idx=(0,)):
@@ -315,7 +314,7 @@ class SnmpLibrary(_Traps):
     # def _set(self, *oid_values):
     def _set(self, oid_values):
         # for oid, value in oid_values:
-        #     self._info('Setting OID %s to %s' % (utils.format_oid(oid), value))
+        #     logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
         # error_indication, error, _, var = \
         #     self._active_connection.cmd_gen.set_Cmd(
         #         self._active_connection.authentication_data,
@@ -329,8 +328,6 @@ class SnmpLibrary(_Traps):
             self._active_connection.transport_target,
             self._active_connection.context_name,
             oid_values))
-
-
 
         if error_indication is not None:
             raise RuntimeError('SNMP SET failed: %s' % error_indication)
@@ -356,9 +353,8 @@ class SnmpLibrary(_Traps):
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
-        # idx = utils.parse_idx(idx)
-        # oid = utils.parse_oid(oid) + idx
-        # self._set((oid, value))
+        idx = utils.parse_idx(idx)
+        oid = utils.parse_oid(oid) + idx
         self._set(ObjectType(ObjectIdentity(oid),value))
 
     def set_many(self, *oid_value_pairs):
@@ -689,30 +685,3 @@ class SnmpLibrary(_Traps):
 
         value = self.convert_to_ip_address(value)
         self.set(oid, value, idx)
-
-    def _warn(self, msg):
-        self._log(msg, 'WARN')
-
-    def _info(self, msg):
-        self._log(msg, 'INFO')
-
-    def _debug(self, msg):
-        self._log(msg, 'DEBUG')
-
-    def _log(self, msg, level=None):
-        self._is_valid_log_level(level, raise_if_invalid=True)
-        msg = msg.strip()
-        if level is None:
-            level = self._default_log_level
-        if msg != '':
-            print('*%s* %s' % (level.upper(), msg))
-
-    def _is_valid_log_level(self, level, raise_if_invalid=False):
-        if level is None:
-            return True
-        if utils.is_string(level) and \
-                level.upper() in ['TRACE', 'DEBUG', 'INFO', 'WARN', 'HTML']:
-            return True
-        if not raise_if_invalid:
-            return False
-        raise RuntimeError("Invalid log level '%s'" % level)
