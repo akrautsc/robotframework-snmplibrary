@@ -13,27 +13,29 @@
 # limitations under the License.
 
 import asyncio
-import inspect
 import os.path
 import warnings
 from itertools import islice
 from pyasn1.compat.octets import null
+from pysnmp.entity.rfc3413 import cmdgen
+from pyasn1.type import univ
+from pysnmp.proto import rfc1902, rfc1905
+from pysnmp.hlapi.v3arch.asyncio import *
+from pysnmp_sync_adapter import (
+    get_cmd_sync,
+    next_cmd_sync,
+    set_cmd_sync,
+    bulk_cmd_sync,
+    walk_cmd_sync,
+    bulk_walk_cmd_sync,
+    create_transport
+)
 from robot.utils.connectioncache import ConnectionCache
 from robot.api import logger
 
 from .traps import _Traps
 from . import utils
 from . import __version__
-
-with warnings.catch_warnings():
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    from pysnmp.hlapi.v3arch.asyncio import *
-    from pysnmp.smi import builder
-    from pysnmp.entity import engine
-    from pysnmp.entity.rfc3413 import cmdgen
-    from pyasn1.type import univ
-    from pysnmp.proto import rfc1902, rfc1905
-
 
 class _SnmpConnection:
 
@@ -42,9 +44,7 @@ class _SnmpConnection:
         self.builder = eng.msgAndPduDsp.mibInstrumController.get_mib_builder()
 
         self.snmp_engine = eng
-        # self.cmd_gen = cmdgen.CommandGenerator(eng)
         self.authentication_data = authentication
-        # self.context_name = context_name
         self.context_name = ContextData(contextName=context_name)
         self.transport_target = transport_target
 
@@ -89,8 +89,7 @@ class SnmpLibrary(_Traps):
 
         authentication_data = CommunityData(self.AGENT_NAME,
                                                    community_string)
-        transport_target = asyncio.run(UdpTransportTarget.create(
-                                        (host, port), timeout, retries))
+        transport_target = create_transport(UdpTransportTarget, (host, port), timeout, retries)
 
         connection = _SnmpConnection(authentication_data, transport_target)
         self._active_connection = connection
@@ -256,12 +255,12 @@ class SnmpLibrary(_Traps):
         oid = utils.parse_oid(oid) + idx
         oid=ObjectType(ObjectIdentity(oid))
 
-        error_indication, error, _, var =  asyncio.run(get_cmd(
+        error_indication, error, _, var =  get_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
             self._active_connection.context_name,
-            oid))
+            oid)
 
         if error_indication is not None:
             raise RuntimeError('SNMP GET failed: %s' % error_indication)
@@ -315,19 +314,13 @@ class SnmpLibrary(_Traps):
     def _set(self, oid_values):
         # for oid, value in oid_values:
         #     logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
-        # error_indication, error, _, var = \
-        #     self._active_connection.cmd_gen.set_Cmd(
-        #         self._active_connection.authentication_data,
-        #         self._active_connection.transport_target,
-        #         *oid_values,
-        #         contextName=self._active_connection.context_name
-        #     )
-        error_indication, error, _, var =  asyncio.run(set_cmd(
+
+        error_indication, error, _, var =  set_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
             self._active_connection.context_name,
-            oid_values))
+            oid_values)
 
         if error_indication is not None:
             raise RuntimeError('SNMP SET failed: %s' % error_indication)
@@ -388,46 +381,34 @@ class SnmpLibrary(_Traps):
                     idx = (0,)
                 idx = utils.parse_idx(idx)
                 oid = utils.parse_oid(oid) + idx
-                oid_values.append((oid, value))
+                # oid_values.append(ObjectType(ObjectIdentity(oid),value))
+                self._set(ObjectType(ObjectIdentity(oid),value))
         except IndexError:
             raise RuntimeError('Invalid OID/value(/index) format')
-        if len(oid_values) < 1:
-            raise RuntimeError('You must specify at least one OID/value pair')
+        # if len(oid_values) < 1:
+        #     raise RuntimeError('You must specify at least one OID/value pair')
 
-        self._set(*oid_values)
+        # self._set(*oid_values)
 
     def walk(self, oid):
-        """Does a SNMP WALK request and returns the result as OID list."""
-        return asyncio.run(self._walk(oid))
-
-    async def _walk(self, oid):
         """Does a SNMP WALK request and returns the result as OID list."""
 
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
         logger.info('Walk starts at OID %s' % (oid, ))
-        # oid = utils.parse_oid(oid)
+        oid = utils.parse_oid(oid)
         oid = ObjectType(ObjectIdentity(oid))
 
-        walk_queries = walk_cmd(
+        walk_queries = walk_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
             self._active_connection.context_name,
             oid)
-        result = [item async for item in walk_queries]
 
-        # error_indication, error, _, var_bind_table = \
-        #     self._active_connection.cmd_gen.nextCmd(
-        #         self._active_connection.authentication_data,
-        #         self._active_connection.transport_target,
-        #         oid,
-        #         contextName=self._active_connection.context_name
-        #     )
         var_bind_table = list()
-        for entry in result:
-            error_indication, error, _, var_bind = entry
+        for error_indication, error, _, var_bind in walk_queries:
             if error_indication:
                 raise RuntimeError('SNMP WALK failed: %s' % error_indication)
             if error != 0:
