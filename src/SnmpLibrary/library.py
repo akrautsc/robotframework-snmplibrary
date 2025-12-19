@@ -12,12 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import asyncio
 import os.path
-import warnings
 from itertools import islice
 from pyasn1.compat.octets import null
-from pysnmp.entity.rfc3413 import cmdgen
 from pyasn1.type import univ
 from pysnmp.proto import rfc1902, rfc1905
 from pysnmp.hlapi.v3arch.asyncio import *
@@ -141,9 +138,9 @@ class SnmpLibrary(_Traps):
 
         try:
             authentication_protocol = {
-                None: cmdgen.usmNoAuthProtocol,
-                'MD5': cmdgen.usmHMACMD5AuthProtocol,
-                'SHA': cmdgen.usmHMACSHAAuthProtocol
+                None: usmNoAuthProtocol,
+                'MD5': usmHMACMD5AuthProtocol,
+                'SHA': usmHMACSHAAuthProtocol
             }[authentication_protocol]
         except KeyError:
             raise RuntimeError('Invalid authentication protocol %s' %
@@ -154,18 +151,18 @@ class SnmpLibrary(_Traps):
 
         try:
             encryption_protocol = {
-                None: cmdgen.usmNoPrivProtocol,
-                'DES': cmdgen.usmDESPrivProtocol,
-                '3DES': cmdgen.usm3DESEDEPrivProtocol,
-                'AES128': cmdgen.usmAesCfb128Protocol,
-                'AES192': cmdgen.usmAesCfb192Protocol,
-                'AES256': cmdgen.usmAesCfb256Protocol,
+                None: usmNoPrivProtocol,
+                'DES': usmDESPrivProtocol,
+                '3DES': usm3DESEDEPrivProtocol,
+                'AES128': usmAesCfb128Protocol,
+                'AES192': usmAesCfb192Protocol,
+                'AES256': usmAesCfb256Protocol,
             }[encryption_protocol]
         except KeyError:
             raise RuntimeError('Invalid encryption protocol %s' %
                                encryption_protocol)
 
-        authentication_data = cmdgen.UsmUserData(
+        authentication_data = UsmUserData(
                                     user,
                                     password,
                                     encryption_password,
@@ -310,17 +307,16 @@ class SnmpLibrary(_Traps):
         """
         return self._get(oid, idx, expect_string=True)
 
-    # def _set(self, *oid_values):
-    def _set(self, oid_values):
+    def _set(self, *oid_values):
         # for oid, value in oid_values:
-        #     logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
+            # logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
 
         error_indication, error, _, var =  set_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
             self._active_connection.context_name,
-            oid_values)
+            *oid_values)
 
         if error_indication is not None:
             raise RuntimeError('SNMP SET failed: %s' % error_indication)
@@ -348,7 +344,7 @@ class SnmpLibrary(_Traps):
 
         idx = utils.parse_idx(idx)
         oid = utils.parse_oid(oid) + idx
-        self._set(ObjectType(ObjectIdentity(oid),value))
+        self._set( ( ObjectType(ObjectIdentity(oid),value) ) )
 
     def set_many(self, *oid_value_pairs):
         """ Does a SNMP SET request with multiple values.
@@ -381,14 +377,13 @@ class SnmpLibrary(_Traps):
                     idx = (0,)
                 idx = utils.parse_idx(idx)
                 oid = utils.parse_oid(oid) + idx
-                # oid_values.append(ObjectType(ObjectIdentity(oid),value))
-                self._set(ObjectType(ObjectIdentity(oid),value))
+                oid_values.append(ObjectType(ObjectIdentity(oid),value))
         except IndexError:
             raise RuntimeError('Invalid OID/value(/index) format')
-        # if len(oid_values) < 1:
-        #     raise RuntimeError('You must specify at least one OID/value pair')
+        if len(oid_values) < 1:
+            raise RuntimeError('You must specify at least one OID/value pair')
 
-        # self._set(*oid_values)
+        self._set(*oid_values)
 
     def walk(self, oid):
         """Does a SNMP WALK request and returns the result as OID list."""
