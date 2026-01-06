@@ -32,7 +32,7 @@ from robot.api import logger
 
 from .traps import _Traps
 from . import utils
-from . import __version__
+# from . import __version__
 
 class _SnmpConnection:
 
@@ -54,7 +54,7 @@ class _SnmpConnection:
 
 class SnmpLibrary(_Traps):
     AGENT_NAME = 'robotframework agent'
-    ROBOT_LIBRARY_VERSION = __version__
+    # ROBOT_LIBRARY_VERSION = __version__
     ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
 
     def __init__(self):

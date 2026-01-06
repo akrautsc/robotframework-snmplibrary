@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from .version import __version__
-except ImportError:
-    __version__ = 'dev'
+# try:
+#     from .version import __version__
+# except ImportError:
+#     __version__ = 'dev'
 
 from .library import SnmpLibrary
+
+from importlib import metadata
+try:
+    __version__ = metadata.version("robotframework-snmplibrary")
+except metadata.PackageNotFoundError:
+    pass
