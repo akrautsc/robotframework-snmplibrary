@@ -4,6 +4,7 @@ version = "0.3.0dev1"
 description = ""
 authors = [{name = "Michael Walle", email = "michael.walle@kontron.com"},
             {name = "Heiko Thiery", email = "heiko.thiery@kontron.com"},
+            {name = "Andre Krautschick", email = "andre.krautschick@eurcontrol.int"},
 ]
 dependencies = [
     "pyasn1 (<=0.6.0)",
