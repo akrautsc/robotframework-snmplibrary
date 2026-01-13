@@ -1,4 +1,4 @@
-from src.SnmpLibrary.utils import parse_oid, parse_idx, format_oid
+from SnmpLibrary.utils import parse_oid, parse_idx, format_oid
 
 
 def test_parse_oid():
