@@ -27,11 +27,11 @@ def atests(context):
     cmd = [
         "coverage",
         "run",
-        "--source=src",
+        "--source=SnmpLibrary",
         "-p",
         "-m",
         "robot",
-        "-P src",
+        "-P SnmpLibrary",
         "--loglevel=TRACE:DEBUG",
         "--listener RobotStackTracer",
         "-d results",
@@ -45,7 +45,7 @@ def utests(context):
     cmd = [
         "coverage",
         "run",
-        "--source=src",
+        "--source=SnmpLibrary",
         "-p",
         "-m",
         "pytest",

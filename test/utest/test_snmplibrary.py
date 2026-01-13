@@ -1,6 +1,6 @@
 import pytest
 
-from src.SnmpLibrary import SnmpLibrary
+from SnmpLibrary import SnmpLibrary
 
 a = [
     ('.1.2.3.256', '1'),
