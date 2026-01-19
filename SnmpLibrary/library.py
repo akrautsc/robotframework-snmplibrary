@@ -15,9 +15,10 @@
 import os.path
 from itertools import islice
 from pyasn1.compat.octets import null
-from pyasn1.type import univ
+
 from pysnmp.proto import rfc1902, rfc1905
 from pysnmp.hlapi.v3arch.asyncio import *
+from pysnmp.smi.builder import DirMibSource
 from pysnmp_sync_adapter import (
     get_cmd_sync,
     next_cmd_sync,
@@ -38,7 +39,8 @@ class _SnmpConnection:
 
     def __init__(self, authentication, transport_target, context_name=null):
         eng = SnmpEngine()
-        self.builder = eng.msgAndPduDsp.mibInstrumController.get_mib_builder()
+        # self.builder = eng.msgAndPduDsp.mibInstrumController.get_mib_builder()
+        self.builder = eng.get_mib_builder()
 
         self.snmp_engine = eng
         self.authentication_data = authentication
@@ -55,7 +57,7 @@ class _SnmpConnection:
 class SnmpLibrary(_Traps):
     AGENT_NAME = 'robotframework agent'
     # ROBOT_LIBRARY_VERSION = __version__
-    ROBOT_LIBRARY_SCOPE = 'TEST SUITE'
+    ROBOT_LIBRARY_SCOPE = 'SUITE'
 
     def __init__(self):
         _Traps.__init__(self)
@@ -220,10 +222,14 @@ class SnmpLibrary(_Traps):
         if not os.path.exists(path):
             raise RuntimeError('Path "%s" does not exist' % path)
 
-        paths = self._active_connection.builder.getMibPath()
-        paths += (path, )
-        logger.debug('New paths: %s' % ' '.join(paths))
-        self._active_connection.builder.setMibPath(*paths)
+        # paths = self._active_connection.builder.getMibPath()
+        # paths += (path, )
+        # logger.debug('New paths: %s' % ' '.join(paths))
+        # self._active_connection.builder.setMibPath(*paths)
+        mib_source = DirMibSource(path)
+        self._active_connection.builder.add_mib_sources(mib_source)
+        logger.debug(self._active_connection.builder.get_mib_sources())
+
 
     def preload_mibs(self, *names):
         """Preloads MIBs.
@@ -242,7 +248,7 @@ class SnmpLibrary(_Traps):
             logger.info('Preloading MIBs %s' % ' '.join(list(names)))
         else:
             logger.info('Preloading all available MIBs')
-        self._active_connection.builder.loadModules(*names)
+        self._active_connection.builder.load_modules(*names)
 
     def _get(self, oid, idx=(0,), expect_string=False):
         if self._active_connection is None:
@@ -266,18 +272,11 @@ class SnmpLibrary(_Traps):
 
         oid, obj = var[0]
 
-        if isinstance(obj, rfc1905.NoSuchInstance):
+        if isinstance(obj, rfc1905.NoSuchObject):
             raise RuntimeError('Object with OID %s not found' %
                                utils.format_oid(oid))
 
-        if expect_string:
-            if not univ.OctetString().isSuperTypeOf(obj):
-                raise RuntimeError('Returned value is not an octetstring')
-            value = str(obj)
-        elif univ.OctetString().isSuperTypeOf(obj):
-            value = obj.asNumbers()
-        else:
-            value = obj.prettyOut(obj)
+        value = utils.format_value(obj, expect_string)
 
         logger.debug('OID %s has value %s' % (utils.format_oid(oid), value))
 
@@ -309,9 +308,9 @@ class SnmpLibrary(_Traps):
 
     def _set(self, *oid_values):
         # for oid, value in oid_values:
-            # logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
+        #     logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
 
-        error_indication, error, _, var =  set_cmd_sync(
+        error_indication, error, _, vars =  set_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
@@ -322,6 +321,16 @@ class SnmpLibrary(_Traps):
             raise RuntimeError('SNMP SET failed: %s' % error_indication)
         if error != 0:
             raise RuntimeError('SNMP SET failed: %s' % error.prettyPrint())
+
+        logger.debug(vars)
+        oids = list()
+        for oid, obj in vars:
+            oid = utils.format_oid(oid)
+            obj = utils.format_value(obj)
+            logger.debug('OID %s has set to value %s' % (oid, obj))
+            oids.append((oid, obj))
+
+        return oids
 
     def set(self, oid, value, idx=(0,)):
         """Does a SNMP SET request.
@@ -344,7 +353,8 @@ class SnmpLibrary(_Traps):
 
         idx = utils.parse_idx(idx)
         oid = utils.parse_oid(oid) + idx
-        self._set( ( ObjectType(ObjectIdentity(oid),value) ) )
+        (set_oid, val) = self._set( ( ObjectType(ObjectIdentity(oid),value) ) )[0]
+        return val
 
     def set_many(self, *oid_value_pairs):
         """ Does a SNMP SET request with multiple values.
@@ -383,24 +393,25 @@ class SnmpLibrary(_Traps):
         if len(oid_values) < 1:
             raise RuntimeError('You must specify at least one OID/value pair')
 
-        self._set(*oid_values)
+        return self._set(*oid_values)
 
-    def walk(self, oid):
+    def walk(self, oid, lexicographicMode = False):
         """Does a SNMP WALK request and returns the result as OID list."""
 
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
-        logger.info('Walk starts at OID %s' % (oid, ))
-        oid = utils.parse_oid(oid)
-        oid = ObjectType(ObjectIdentity(oid))
+        logger.info('Walk starts at OID %s' % (oid,))
+        parsed_oid = utils.parse_oid(oid)
+        parsed_oid = ObjectType(ObjectIdentity(parsed_oid))
 
         walk_queries = walk_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
             self._active_connection.context_name,
-            oid)
+            parsed_oid,
+            lexicographicMode=lexicographicMode)
 
         var_bind_table = list()
         for error_indication, error, _, var_bind in walk_queries:
@@ -413,12 +424,8 @@ class SnmpLibrary(_Traps):
         oids = list()
         for var_bind_table_row in var_bind_table:
             oid, obj = var_bind_table_row[0]
-            oid = ''.join(('.', str(oid)))
-            if obj.isSuperTypeOf(rfc1902.ObjectIdentifier()):
-                obj = ''.join(('.', str(obj)))
-            else:
-                obj = obj.prettyOut(obj)
-            logger.debug('%s: %s' % (oid, obj))
+            oid = utils.format_oid(oid)
+            obj=utils.format_value(obj)
             oids.append((oid, obj))
 
         return oids

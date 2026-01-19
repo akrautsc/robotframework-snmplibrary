@@ -15,6 +15,7 @@
 import time
 import warnings
 import functools
+from pyasn1.type import univ
 
 import robot.utils
 from robot.api import logger
@@ -51,7 +52,7 @@ class _TrapFilters:
 
 class _TrapReceiver:
     def __init__(self):
-        self.trap_pdu = dict()
+        self.trap_pdu = list()
         self.started = None
         self.trap_filter = None
         self.timeout = None
@@ -80,7 +81,9 @@ class _TrapReceiver:
         # Stop the receiver if the trap we are looking for was received.
         if self.trap_filter(domain, sock, pdu):
             for oid, val in v2c.apiPDU.get_varbinds(pdu):
-                self.trap_pdu[oid] = val
+                oid = utils.format_oid(oid)
+                val = utils.format_value(val)
+                self.trap_pdu.append((oid, val))
             transport.job_finished(1)
             transport._AsyncioDispatcher__close_dispatcher()
 
