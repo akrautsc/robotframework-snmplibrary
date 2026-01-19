@@ -11,7 +11,7 @@ ROOT = pathlib.Path(__file__).parent.resolve().as_posix()
 
 @task
 def libdoc(context):
-    source = f"{ROOT}/src/SnmpLibrary/"
+    source = f"{ROOT}/SnmpLibrary/"
     target = f"{ROOT}/docs/SnmpLibrary.html"
     cmd = [
         "libdoc",
@@ -32,7 +32,7 @@ def atests(context):
         "-m",
         "robot",
         "-P SnmpLibrary",
-        "--loglevel=TRACE:DEBUG",
+        "--loglevel=TRACE",
         "--listener RobotStackTracer",
         "-d results",
         f"{ROOT}/test/atest"

@@ -14,7 +14,7 @@
 
 import sys
 from robot.api import logger
-
+from pyasn1.type import univ
 
 def try_int(i):
     try:
@@ -61,6 +61,16 @@ def parse_oid(oid):
 def format_oid(oid):
     return '.' + '.'.join(map(str, oid))
 
+def format_value(var, expect_string = False):
+
+    if expect_string:
+        if not univ.OctetString().isSuperTypeOf(var):
+            raise RuntimeError('Returned value is not an octetstring')
+    if univ.OctetString().isSuperTypeOf(var):
+        value = str(var)
+    else:
+        value = var.prettyOut(var)
+    return  value
 
 # Interpret a string as an SNMP index. The following values are parsed:
 #  '1.2.3.4' -> (1,2,3,4)
