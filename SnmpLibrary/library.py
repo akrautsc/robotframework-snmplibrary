@@ -578,7 +578,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_octetstring(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_integer(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to an
@@ -589,7 +589,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_integer(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_integer32(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to an
@@ -599,7 +599,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_integer32(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_counter32(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to a
@@ -609,7 +609,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_counter32(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_counter64(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to a
@@ -619,7 +619,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_counter64(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_gauge32(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to a
@@ -629,7 +629,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_gauge32(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_unsigned32(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to a
@@ -639,7 +639,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_unsigned32(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_timeticks(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to a
@@ -649,7 +649,7 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_timeticks(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
 
     def set_ip_address(self, oid, value, idx=(0,)):
         """Does a SNMP SET request after converting the value to an
