@@ -307,8 +307,6 @@ class SnmpLibrary(_Traps):
         return self._get(oid, idx, expect_string=True)
 
     def _set(self, *oid_values):
-        # for oid, value in oid_values:
-        #     logger.info('Setting OID %s to %s' % (utils.format_oid(oid), value))
 
         error_indication, error, _, vars =  set_cmd_sync(
             self._active_connection.snmp_engine,
@@ -353,8 +351,7 @@ class SnmpLibrary(_Traps):
 
         idx = utils.parse_idx(idx)
         oid = utils.parse_oid(oid) + idx
-        (set_oid, val) = self._set( ( ObjectType(ObjectIdentity(oid),value) ) )[0]
-        return val
+        return self._set( ( ObjectType(ObjectIdentity(oid),value) ) )[0]
 
     def set_many(self, *oid_value_pairs):
         """ Does a SNMP SET request with multiple values.
@@ -667,4 +664,4 @@ class SnmpLibrary(_Traps):
         """
 
         value = self.convert_to_ip_address(value)
-        self.set(oid, value, idx)
+        return self.set(oid, value, idx)
