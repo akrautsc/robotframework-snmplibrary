@@ -12,3 +12,5 @@ dist
 log.html
 report.html
 output.xml
+
+.coverage*
