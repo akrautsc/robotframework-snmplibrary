@@ -20,6 +20,9 @@
 from .library import SnmpLibrary
 
 from importlib import metadata
+
+
+
 try:
     __version__ = metadata.version("robotframework-snmplibrary")
 except metadata.PackageNotFoundError:
