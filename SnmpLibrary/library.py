@@ -19,14 +19,16 @@ from pyasn1.compat.octets import null
 from pysnmp.proto import rfc1902, rfc1905
 from pysnmp.hlapi.v3arch.asyncio import *
 from pysnmp.smi.builder import DirMibSource
-from pysnmp_sync_adapter import (
+from .pysnmp_sync_adapter.sync_adapters import (
     get_cmd_sync,
     next_cmd_sync,
     set_cmd_sync,
     bulk_cmd_sync,
     walk_cmd_sync,
     bulk_walk_cmd_sync,
-    create_transport
+    create_transport,
+    parallel_get_sync,
+    cluster_varbinds
 )
 from robot.utils.connectioncache import ConnectionCache
 from robot.api import logger
