@@ -14,11 +14,13 @@
 
 import os.path
 from itertools import islice
-from pyasn1.compat.octets import null
 
 from pysnmp.proto import rfc1902, rfc1905
 from pysnmp.hlapi.v3arch.asyncio import *
 from pysnmp.smi.builder import DirMibSource
+from pysnmp.smi import view
+from pysnmp.smi.rfc1902 import ObjectIdentity
+
 from .pysnmp_sync_adapter.sync_adapters import (
     get_cmd_sync,
     next_cmd_sync,
@@ -39,7 +41,7 @@ from . import utils
 
 class _SnmpConnection:
 
-    def __init__(self, authentication, transport_target, context_name=null):
+    def __init__(self, authentication, transport_target, context_name=b''):
         eng = SnmpEngine()
         # self.builder = eng.msgAndPduDsp.mibInstrumController.get_mib_builder()
         self.builder = eng.get_mib_builder()
@@ -105,7 +107,7 @@ class SnmpLibrary(_Traps):
                                 authentication_protocol=None,
                                 encryption_protocol=None, port=161,
                                 timeout=1.0, retries=5, alias=None,
-                                context_name=null):
+                                context_name=b''):
         """Opens a new SNMP v3 Connection to the given host.
 
         If no `port` is given, the default port 161 is used.
@@ -230,6 +232,11 @@ class SnmpLibrary(_Traps):
         # self._active_connection.builder.setMibPath(*paths)
         mib_source = DirMibSource(path)
         self._active_connection.builder.add_mib_sources(mib_source)
+        # Add MIB view controller to snmp connection (need to have it passed 
+        # through wrapper get_cmd_sync)
+        mib_view_controller = view.MibViewController(self._active_connection.builder)
+        self._active_connection.snmp_engine.mibViewController = mib_view_controller
+        self._active_connection.snmp_engine.cache['mibViewController'] = mib_view_controller
         logger.debug(self._active_connection.builder.get_mib_sources())
 
 
@@ -257,9 +264,11 @@ class SnmpLibrary(_Traps):
             raise RuntimeError('No transport host set')
 
         idx = utils.parse_idx(idx)
-        oid = utils.parse_oid(oid) + idx
-        oid=ObjectType(ObjectIdentity(oid))
-
+        oid = utils.parse_oid(oid)
+        if oid[-1]!=0:
+            oid=oid + idx
+        oid=ObjectType(utils.build_object_identity(oid))
+    
         error_indication, error, _, var =  get_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
@@ -352,8 +361,17 @@ class SnmpLibrary(_Traps):
             raise RuntimeError('No transport host set')
 
         idx = utils.parse_idx(idx)
-        oid = utils.parse_oid(oid) + idx
-        return self._set( ( ObjectType(ObjectIdentity(oid),value) ) )[0]
+        oid = utils.parse_oid(oid)
+        if oid[-1]!=0:
+            oid=oid + idx
+        o_identitity=utils.build_object_identity(oid)
+        
+        mibView = view.MibViewController(self._active_connection.builder)
+        resolved_o_identitity=o_identitity.resolve_with_mib(mibView)
+        logger.debug(resolved_o_identitity.prettyPrint())
+        logger.debug(resolved_o_identitity._ObjectIdentity__oid._value)
+        oid_value=ObjectType(o_identitity, value)
+        return self._set((oid_value))
 
     def set_many(self, *oid_value_pairs):
         """ Does a SNMP SET request with multiple values.
@@ -384,9 +402,14 @@ class SnmpLibrary(_Traps):
                     idx = args.pop(0)[4:]
                 else:
                     idx = (0,)
+
                 idx = utils.parse_idx(idx)
-                oid = utils.parse_oid(oid) + idx
-                oid_values.append(ObjectType(ObjectIdentity(oid),value))
+                oid = utils.parse_oid(oid)
+                if oid[-1]!=0:
+                    oid=oid + idx
+                o_identitity=utils.build_object_identity(oid)
+                oid_value=ObjectType(o_identitity, value)
+                oid_values.append(oid_value)
         except IndexError:
             raise RuntimeError('Invalid OID/value(/index) format')
         if len(oid_values) < 1:
