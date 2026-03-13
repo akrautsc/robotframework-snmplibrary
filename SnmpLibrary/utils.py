@@ -15,6 +15,7 @@
 import sys
 from robot.api import logger
 from pyasn1.type import univ
+from pysnmp.smi import rfc1902
 
 def try_int(i):
     try:
@@ -33,30 +34,43 @@ def is_string(string):
 #   SNMPv2-MIB::sysDescr.0
 #   .1.3.6.1.2.1.1.1.0
 #   .iso.org.6.internet.2.1.1.1.0
-#   sysDescr.0
 def parse_oid(oid):
     if not is_string(oid):
         return oid
+    # MIB name present
     elif '::' in oid:
         mib, sym = oid.split('::', 1)
         oid = None
-    elif oid.startswith('.'):
-        oid = map(try_int, oid[1:].split('.'))
-        oid = tuple(oid)
+    # No MIB name given
     else:
-        mib = ''
-        sym = oid
-        oid = None
+        if oid.startswith('.'):
+            oid = map(try_int, oid[1:].split('.'))
+            oid=tuple(oid)
+        else:
+            oid = map(try_int, oid.split('.'))
+            oid=tuple(oid)
 
     if oid is None:
-        sym, suffixes = sym.split('.', 1)
-        suffixes = suffixes.split('.')
-        suffixes = map(try_int, suffixes)
-        suffixes = tuple(suffixes)
-        oid = ((mib, sym),) + suffixes
+        try:
+            sym, suffixes = sym.split('.', 1)
+            suffixes = suffixes.split('.')
+            suffixes = map(try_int, suffixes)
+            suffixes = tuple(suffixes)
+            oid = (mib, sym) + suffixes
+        except ValueError:
+            suffixes=tuple()
+            oid = (mib, sym) 
 
     return oid
 
+def build_object_identity(oid):
+    is_only_int = all(isinstance(x, int) for x in oid)
+    if is_only_int: 
+        obj_ident=rfc1902.ObjectIdentity(oid)
+    # If mib is passed, ObjectIdentity expects several arguments
+    else:
+        obj_ident=rfc1902.ObjectIdentity(*oid)
+    return obj_ident
 
 def format_oid(oid):
     return '.' + '.'.join(map(str, oid))
@@ -76,12 +90,18 @@ def format_value(var, expect_string = False):
 #  '1.2.3.4' -> (1,2,3,4)
 #  ('1', '2', '3') -> (1, 2, 3)
 #  1 -> (1,)
+# ('str_index1', 'str.index2') -> ('str_index1', 'str.index2')
 def parse_idx(idx):
     if is_string(idx):
-        idx = map(int, idx.split('.'))
+        index = map(int, idx.split('.'))
     elif isinstance(idx, int):
-        idx = idx,
+        index = idx,
     else:
         # Assume interable list
-        idx = map(int, idx)
-    return tuple(idx)
+        try:
+            index=tuple(map(int, idx))
+        # idx is a list/tuple of strings, nothing to change
+        except ValueError:
+           index=idx
+    return tuple(index)
+
