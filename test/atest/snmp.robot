@@ -5,7 +5,7 @@ Library  SnmpLibrary
 
 SNMPV2c Faulty GET
     Open Snmp V2c Connection  localhost  community_string=public
-    Run Keyword and expect error  MibNotFoundError: MIB file * not found in search path *  Get  UNKNOWN-MIB::sysUpTime
+    Run Keyword and expect error  *UNKNOWN-MIB* not found in search path *  Get  UNKNOWN-MIB::sysUpTime
     Run Keyword and expect error  * No symbol SNMPv2-MIB::UnkownSymbol *   Get  SNMPv2-MIB::UnkownSymbol
     Run Keyword and expect error  NoSuchObjectError: NoSuchObjectError* 'No such symbol ::UnkownSymbol at *  Get  UnkownSymbol
     Run Keyword and expect error  Object with OID .1.3.6.1.4.1.2363.3.30.10.0 not found  Get  .1.3.6.1.4.1.2363.3.30.10
