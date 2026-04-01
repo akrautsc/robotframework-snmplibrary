@@ -34,21 +34,28 @@ def is_string(string):
 #   SNMPv2-MIB::sysDescr.0
 #   .1.3.6.1.2.1.1.1.0
 #   .iso.org.6.internet.2.1.1.1.0
-def parse_oid(oid):
-    if not is_string(oid):
-        return oid
+def parse_oid(oid_arg):
+    mib=None
+
+    # Already a tuple
+    if not is_string(oid_arg):
+        oid=oid_arg
+
     # MIB name present
-    elif '::' in oid:
-        mib, sym = oid.split('::', 1)
+    elif '::' in oid_arg:
+        mib, sym = oid_arg.split('::', 1)
         oid = None
     # No MIB name given
     else:
-        if oid.startswith('.'):
-            oid = map(try_int, oid[1:].split('.'))
-            oid=tuple(oid)
+        if oid_arg.startswith('.'):
+            oid = map(try_int, oid_arg[1:].split('.'))
         else:
-            oid = map(try_int, oid.split('.'))
-            oid=tuple(oid)
+            oid = map(try_int, oid_arg.split('.'))
+        oid=tuple(oid)
+        is_only_int = all(isinstance(x, int) for x in oid)
+        # If not numeric oid, mib is needed as first element
+        if not is_only_int:
+            oid=(mib, ) + oid
 
     if oid is None:
         try:
@@ -56,21 +63,35 @@ def parse_oid(oid):
             suffixes = suffixes.split('.')
             suffixes = map(try_int, suffixes)
             suffixes = tuple(suffixes)
-            oid = (mib, sym) + suffixes
+        # No suffix
         except ValueError:
-            suffixes=tuple()
-            oid = (mib, sym) 
+            suffixes = tuple()
+        oid = (mib, sym,) + suffixes
 
     return oid
 
-def build_object_identity(oid):
-    is_only_int = all(isinstance(x, int) for x in oid)
+def build_object_identity(oid, idx, MibViewer):
+    # Parse oid & index
+    parsed_idx = parse_idx(idx)
+    parsed_oid = parse_oid(oid)
+
+    if parsed_oid[-1]!=0:
+        parsed_oid=parsed_oid + parsed_idx
+
+    # Numeric form
+    is_only_int = all(isinstance(x, int) for x in parsed_oid)
     if is_only_int: 
-        obj_ident=rfc1902.ObjectIdentity(oid)
-    # If mib is passed, ObjectIdentity expects several arguments
+        obj_ident=rfc1902.ObjectIdentity(parsed_oid)
+
+    # Symbolic name
     else:
-        obj_ident=rfc1902.ObjectIdentity(*oid)
-    return obj_ident
+        obj_ident=rfc1902.ObjectIdentity(*parsed_oid)
+
+    # oid is incomplete until resolved
+    resolved_o_identitity=obj_ident.resolve_with_mib(MibViewer)
+    logger.debug(resolved_o_identitity.prettyPrint())
+    logger.debug(resolved_o_identitity._ObjectIdentity__oid._value)
+    return resolved_o_identitity
 
 def format_oid(oid):
     return '.' + '.'.join(map(str, oid))

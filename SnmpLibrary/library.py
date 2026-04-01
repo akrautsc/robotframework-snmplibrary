@@ -262,19 +262,17 @@ class SnmpLibrary(_Traps):
     def _get(self, oid, idx=(0,), expect_string=False):
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
-
-        idx = utils.parse_idx(idx)
-        oid = utils.parse_oid(oid)
-        if oid[-1]!=0:
-            oid=oid + idx
-        oid=ObjectType(utils.build_object_identity(oid))
     
+        mibView = view.MibViewController(self._active_connection.builder)
+        o_identitity=utils.build_object_identity(oid, idx, mibView)
+        resolved_oid=ObjectType(o_identitity)
+
         error_indication, error, _, var =  get_cmd_sync(
             self._active_connection.snmp_engine,
             self._active_connection.authentication_data,
             self._active_connection.transport_target,
             self._active_connection.context_name,
-            oid)
+            resolved_oid)
 
         if error_indication is not None:
             raise RuntimeError('SNMP GET failed: %s' % error_indication)
@@ -360,16 +358,14 @@ class SnmpLibrary(_Traps):
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
-        idx = utils.parse_idx(idx)
-        oid = utils.parse_oid(oid)
-        if oid[-1]!=0:
-            oid=oid + idx
-        o_identitity=utils.build_object_identity(oid)
-        
+        # idx = utils.parse_idx(idx)
+        # oid = utils.parse_oid(oid)
+        # if oid[-1]!=0:
+        #     oid=oid + idx
+        # o_identitity=utils.build_object_identity(oid)
+
         mibView = view.MibViewController(self._active_connection.builder)
-        resolved_o_identitity=o_identitity.resolve_with_mib(mibView)
-        logger.debug(resolved_o_identitity.prettyPrint())
-        logger.debug(resolved_o_identitity._ObjectIdentity__oid._value)
+        o_identitity=utils.build_object_identity(oid, idx, mibView)
         oid_value=ObjectType(o_identitity, value)
         return self._set((oid_value))
 
@@ -403,11 +399,8 @@ class SnmpLibrary(_Traps):
                 else:
                     idx = (0,)
 
-                idx = utils.parse_idx(idx)
-                oid = utils.parse_oid(oid)
-                if oid[-1]!=0:
-                    oid=oid + idx
-                o_identitity=utils.build_object_identity(oid)
+                mibView = view.MibViewController(self._active_connection.builder)
+                o_identitity=utils.build_object_identity(oid, idx, mibView)
                 oid_value=ObjectType(o_identitity, value)
                 oid_values.append(oid_value)
         except IndexError:

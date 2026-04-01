@@ -2,12 +2,15 @@
 Library  SnmpLibrary
 
 *** Test Cases ***
+
 SNMPV2c Faulty GET
     Open Snmp V2c Connection  localhost  community_string=public
-    Run Keyword and expect error  MibNotFoundError: MIB file * not found in search path *  Get  sysName.0
-    Run Keyword and expect error  MibNotFoundError: MIB file * not found in search path *  Get  sysName
+    Run Keyword and expect error  MibNotFoundError: MIB file * not found in search path *  Get  UNKNOWN-MIB::sysUpTime
+    Run Keyword and expect error  * No symbol SNMPv2-MIB::UnkownSymbol *   Get  SNMPv2-MIB::UnkownSymbol
+    Run Keyword and expect error  NoSuchObjectError: NoSuchObjectError* 'No such symbol ::UnkownSymbol at *  Get  UnkownSymbol
     Run Keyword and expect error  Object with OID .1.3.6.1.4.1.2363.3.30.10.0 not found  Get  .1.3.6.1.4.1.2363.3.30.10
     Close Snmp connection
+
 
 SNMPV2c Faulty GET Display String
     Open Snmp V2c Connection  localhost  community_string=public
@@ -15,6 +18,14 @@ SNMPV2c Faulty GET Display String
     Close Snmp connection
 
 SNMPV2c GET - scalar
+    Open Snmp V2c Connection  localhost  community_string=public
+    ${value} =  Get  SNMPv2-MIB::sysName.0
+    Log To Console  ${value}
+    ${value} =  Get  sysName.0
+    Log To Console  ${value}
+    Close Snmp connection
+
+SNMPV2c GET - scalar2
     Open Snmp V2c Connection  localhost  community_string=public
     ${value} =  Get  SNMPv2-MIB::sysUpTime
     Log To Console  ${value}
@@ -42,8 +53,10 @@ SNMPV2c GET Display String - table
 
 SNMPV2c GET Display String - resiliency
     [Template]  SNMPV2c GET Display String Should Be Equal
-    SNMPv2-MIB::sysName  0  SNMPv2-MIB::sysName    ${None}
-    SNMPv2-MIB::sysName  0  SNMPv2-MIB::sysName.0  ${None}
+    SNMPv2-MIB::sysName  0  SNMPv2-MIB::sysName     ${None}
+    SNMPv2-MIB::sysName  0  SNMPv2-MIB::sysName.0   ${None}
+    SNMPv2-MIB::sysName  0  SNMPv2-MIB::system.5    ${None}
+    SNMPv2-MIB::sysName  0  SNMPv2-MIB::system.5.0  ${None}
     SNMPv2-MIB::sysName  0  .1.3.6.1.2.1.1.5  0
     SNMPv2-MIB::sysName  0  .1.3.6.1.2.1.1.5  ${None}
     SNMPv2-MIB::sysName  0  .1.3.6.1.2.1.1.5.0  ${None}
