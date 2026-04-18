@@ -70,9 +70,12 @@ def parse_oid(oid_arg):
 
     return oid
 
-def build_object_identity(oid, idx, MibViewer):
+def build_object_identity(oid, mibviewer, idx=None):
     # Parse oid & index
-    parsed_idx = parse_idx(idx)
+    if idx is None:
+        parsed_idx=tuple()
+    else:
+        parsed_idx = parse_idx(idx)
     parsed_oid = parse_oid(oid)
 
     if parsed_oid[-1]!=0:
@@ -88,7 +91,7 @@ def build_object_identity(oid, idx, MibViewer):
         obj_ident=rfc1902.ObjectIdentity(*parsed_oid)
 
     # oid is incomplete until resolved
-    resolved_o_identitity=obj_ident.resolve_with_mib(MibViewer)
+    resolved_o_identitity=obj_ident.resolve_with_mib(mibviewer)
     logger.debug(resolved_o_identitity.prettyPrint())
     logger.debug(resolved_o_identitity._ObjectIdentity__oid._value)
     return resolved_o_identitity
@@ -104,7 +107,7 @@ def format_value(var, expect_string = False):
     if univ.OctetString().isSuperTypeOf(var):
         value = str(var)
     else:
-        value = var.prettyOut(var)
+        value = var.prettyPrint()
     return  value
 
 # Interpret a string as an SNMP index. The following values are parsed:
@@ -114,7 +117,13 @@ def format_value(var, expect_string = False):
 # ('str_index1', 'str.index2') -> ('str_index1', 'str.index2')
 def parse_idx(idx):
     if is_string(idx):
-        index = map(int, idx.split('.'))
+        is_only_int = all(isinstance(x, int) for x in idx)
+        # numerical only index
+        if  is_only_int:
+            index = map(int, idx.split('.'))
+        # alphanum index
+        else:
+            index = tuple(idx.split("."))
     elif isinstance(idx, int):
         index = idx,
     else:

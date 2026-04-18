@@ -263,8 +263,8 @@ class SnmpLibrary(_Traps):
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
     
-        mibView = view.MibViewController(self._active_connection.builder)
-        o_identitity=utils.build_object_identity(oid, idx, mibView)
+        mib_view = view.MibViewController(self._active_connection.builder)
+        o_identitity=utils.build_object_identity(oid, mib_view, idx)
         resolved_oid=ObjectType(o_identitity)
 
         error_indication, error, _, var =  get_cmd_sync(
@@ -358,14 +358,8 @@ class SnmpLibrary(_Traps):
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
-        # idx = utils.parse_idx(idx)
-        # oid = utils.parse_oid(oid)
-        # if oid[-1]!=0:
-        #     oid=oid + idx
-        # o_identitity=utils.build_object_identity(oid)
-
-        mibView = view.MibViewController(self._active_connection.builder)
-        o_identitity=utils.build_object_identity(oid, idx, mibView)
+        mib_view = view.MibViewController(self._active_connection.builder)
+        o_identitity=utils.build_object_identity(oid, mib_view, idx)
         oid_value=ObjectType(o_identitity, value)
         return self._set((oid_value))
 
@@ -399,8 +393,8 @@ class SnmpLibrary(_Traps):
                 else:
                     idx = (0,)
 
-                mibView = view.MibViewController(self._active_connection.builder)
-                o_identitity=utils.build_object_identity(oid, idx, mibView)
+                mib_view = view.MibViewController(self._active_connection.builder)
+                o_identitity=utils.build_object_identity(oid, mib_view, idx)
                 oid_value=ObjectType(o_identitity, value)
                 oid_values.append(oid_value)
         except IndexError:
@@ -410,15 +404,16 @@ class SnmpLibrary(_Traps):
 
         return self._set(*oid_values)
 
-    def walk(self, oid, lexicographicMode = False):
+    def walk(self, oid, lexicographicMode = False, pretty = False):
         """Does a SNMP WALK request and returns the result as OID list."""
 
         if self._active_connection is None:
             raise RuntimeError('No transport host set')
 
         logger.info('Walk starts at OID %s' % (oid,))
-        parsed_oid = utils.parse_oid(oid)
-        parsed_oid = ObjectType(ObjectIdentity(parsed_oid))
+        mib_view = view.MibViewController(self._active_connection.builder)
+        o_identitity=utils.build_object_identity(oid, mib_view)
+        parsed_oid=ObjectType(o_identitity)
 
         walk_queries = walk_cmd_sync(
             self._active_connection.snmp_engine,
@@ -439,7 +434,10 @@ class SnmpLibrary(_Traps):
         oids = list()
         for var_bind_table_row in var_bind_table:
             oid, obj = var_bind_table_row[0]
-            oid = utils.format_oid(oid)
+            if pretty:
+                oid = oid.prettyPrint()
+            else:
+                oid = utils.format_oid(oid)
             obj=utils.format_value(obj)
             oids.append((oid, obj))
 
