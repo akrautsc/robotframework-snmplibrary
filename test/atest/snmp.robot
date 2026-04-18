@@ -68,7 +68,13 @@ SNMPV2c GET Display String - resiliency
 
 SNMPV2c Walk
     Open Snmp V2c Connection  localhost  community_string=public
-    @{value} =  Walk  .1.3.6.1.2.1.1
+    @{value} =  Walk  .1.3.6.1.2.1.1  
+    Log Many  @{value}
+    Close Snmp connection
+
+SNMPV2c Walk Pretty
+    Open Snmp V2c Connection  localhost  community_string=public
+    @{value} =  Walk  .1.3.6.1.2.1.1  pretty=${True}
     Log Many  @{value}
     Close Snmp connection
 
