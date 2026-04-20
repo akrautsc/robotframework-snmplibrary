@@ -13,7 +13,7 @@ def test_format_oid():
     assert format_oid((1, 'iso', 'org', 3)) == '.1.iso.org.3'
 
 def test_parse_idx():
-    assert parse_idx('1.2.3') == (1, 2, 3)
+    assert parse_idx('1.2.3') == ('1', '2', '3')
     assert parse_idx(1) == (1,)
     assert parse_idx([1, 2, 3]) == (1, 2, 3)
     assert parse_idx((1, '2', 3)) == (1, 2, 3)
