@@ -15,6 +15,7 @@
 import sys
 from robot.api import logger
 from pyasn1.type import univ
+from pysnmp.smi import rfc1902
 
 def try_int(i):
     try:
@@ -33,30 +34,67 @@ def is_string(string):
 #   SNMPv2-MIB::sysDescr.0
 #   .1.3.6.1.2.1.1.1.0
 #   .iso.org.6.internet.2.1.1.1.0
-#   sysDescr.0
-def parse_oid(oid):
-    if not is_string(oid):
-        return oid
-    elif '::' in oid:
-        mib, sym = oid.split('::', 1)
+def parse_oid(oid_arg):
+    mib=None
+
+    # Already a tuple
+    if not is_string(oid_arg):
+        oid=oid_arg
+
+    # MIB name present
+    elif '::' in oid_arg:
+        mib, sym = oid_arg.split('::', 1)
         oid = None
-    elif oid.startswith('.'):
-        oid = map(try_int, oid[1:].split('.'))
-        oid = tuple(oid)
+    # No MIB name given
     else:
-        mib = ''
-        sym = oid
-        oid = None
+        if oid_arg.startswith('.'):
+            oid = map(try_int, oid_arg[1:].split('.'))
+        else:
+            oid = map(try_int, oid_arg.split('.'))
+        oid=tuple(oid)
+        is_only_int = all(isinstance(x, int) for x in oid)
+        # If not numeric oid, mib is needed as first element
+        if not is_only_int:
+            oid=(mib, ) + oid
 
     if oid is None:
-        sym, suffixes = sym.split('.', 1)
-        suffixes = suffixes.split('.')
-        suffixes = map(try_int, suffixes)
-        suffixes = tuple(suffixes)
-        oid = ((mib, sym),) + suffixes
+        try:
+            sym, suffixes = sym.split('.', 1)
+            suffixes = suffixes.split('.')
+            suffixes = map(try_int, suffixes)
+            suffixes = tuple(suffixes)
+        # No suffix
+        except ValueError:
+            suffixes = tuple()
+        oid = (mib, sym,) + suffixes
 
     return oid
 
+def build_object_identity(oid, mibviewer, idx=None):
+    # Parse oid & index
+    if idx is None:
+        parsed_idx=tuple()
+    else:
+        parsed_idx = parse_idx(idx)
+    parsed_oid = parse_oid(oid)
+
+    if parsed_oid[-1]!=0:
+        parsed_oid=parsed_oid + parsed_idx
+
+    # Numeric form
+    is_only_int = all(isinstance(x, int) for x in parsed_oid)
+    if is_only_int: 
+        obj_ident=rfc1902.ObjectIdentity(parsed_oid)
+
+    # Symbolic name
+    else:
+        obj_ident=rfc1902.ObjectIdentity(*parsed_oid)
+
+    # oid is incomplete until resolved
+    resolved_o_identitity=obj_ident.resolve_with_mib(mibviewer)
+    logger.debug(resolved_o_identitity.prettyPrint())
+    logger.debug(resolved_o_identitity._ObjectIdentity__oid._value)
+    return resolved_o_identitity
 
 def format_oid(oid):
     return '.' + '.'.join(map(str, oid))
@@ -69,19 +107,31 @@ def format_value(var, expect_string = False):
     if univ.OctetString().isSuperTypeOf(var):
         value = str(var)
     else:
-        value = var.prettyOut(var)
+        value = var.prettyPrint()
     return  value
 
 # Interpret a string as an SNMP index. The following values are parsed:
 #  '1.2.3.4' -> (1,2,3,4)
 #  ('1', '2', '3') -> (1, 2, 3)
 #  1 -> (1,)
+# ('str_index1', 'str.index2') -> ('str_index1', 'str.index2')
 def parse_idx(idx):
     if is_string(idx):
-        idx = map(int, idx.split('.'))
+        is_only_int = all(isinstance(x, int) for x in idx)
+        # numerical only index
+        if  is_only_int:
+            index = map(int, idx.split('.'))
+        # alphanum index
+        else:
+            index = tuple(idx.split("."))
     elif isinstance(idx, int):
-        idx = idx,
+        index = idx,
     else:
         # Assume interable list
-        idx = map(int, idx)
-    return tuple(idx)
+        try:
+            index=tuple(map(int, idx))
+        # idx is a list/tuple of strings, nothing to change
+        except ValueError:
+           index=idx
+    return tuple(index)
+

@@ -4,6 +4,8 @@ build/
 
 .idea
 
+.venv*/
+
 .vscode
 
 docs
@@ -14,3 +16,4 @@ report.html
 output.xml
 
 .coverage*
+
